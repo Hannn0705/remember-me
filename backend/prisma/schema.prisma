@@ -1,0 +1,310 @@
+// ============================================
+// Remember Me - Database Schema
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== User ====================
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  nickname      String?
+  avatarUrl     String?
+  role          String    @default("USER") // USER, ADMIN
+  isActive      Boolean   @default(true)
+  emailVerified Boolean   @default(false)
+  partnerId     String?   @unique
+  partnerCode   String?   @unique
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  partner       User?          @relation("PartnerRelation", fields: [partnerId], references: [id])
+  partnered     User?          @relation("PartnerRelation")
+  stars         Star[]
+  lettersSent   Letter[]       @relation("LettersSent")
+  lettersReceived Letter[]     @relation("LettersReceived")
+  notifications Notification[]
+  petMembers    PetMember[]
+  petVoices     VoiceRecord[]
+  petActivities PetActivity[]
+  petInvitesSent PetInvite[]   @relation("InvitesSent")
+  petInvitesReceived PetInvite[] @relation("InvitesReceived")
+
+  @@map("users")
+}
+
+// ==================== Email Verification ====================
+model EmailVerification {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  type      String   // REGISTER, RESET_PASSWORD, CHANGE_EMAIL
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, type])
+  @@map("email_verifications")
+}
+
+// ==================== Star (Memory Node) ====================
+model Star {
+  id        String   @id @default(uuid())
+  userId    String
+  date      DateTime // The specific date this star represents
+  title     String?
+  content   String?
+  mood      String?  // emoji or mood string
+  color     String   @default("#FFD700") // star color
+  isLocked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memories  Memory[]
+  photos    Photo[]
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@map("stars")
+}
+
+// ==================== Memory (Entry inside a Star) ====================
+model Memory {
+  id        String   @id @default(uuid())
+  starId    String
+  content   String?  // text content
+  voiceUrl  String?  // voice recording
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  star      Star     @relation(fields: [starId], references: [id], onDelete: Cascade)
+
+  @@index([starId])
+  @@map("memories")
+}
+
+// ==================== Photo ====================
+model Photo {
+  id        String   @id @default(uuid())
+  starId    String
+  userId    String
+  url       String
+  thumbUrl  String?
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+
+  star      Star     @relation(fields: [starId], references: [id], onDelete: Cascade)
+
+  @@index([starId])
+  @@map("photos")
+}
+
+// ==================== Partner Connection ====================
+model PartnerRequest {
+  id          String   @id @default(uuid())
+  fromUserId  String
+  toCode      String
+  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  message     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("partner_requests")
+}
+
+// ==================== Letter ====================
+model Letter {
+  id          String    @id @default(uuid())
+  senderId    String
+  receiverId  String
+  title       String
+  content     String
+  isDraft     Boolean   @default(false)
+  isSent      Boolean   @default(false)
+  isRead      Boolean   @default(false)
+  scheduledAt DateTime? // null = send immediately
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  sender      User      @relation("LettersSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User      @relation("LettersReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([scheduledAt])
+  @@map("letters")
+}
+
+// ==================== Email Templates ====================
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  subject   String
+  htmlBody  String
+  variables String   // JSON string of variable names used
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+// ==================== Email Log ====================
+model EmailLog {
+  id         String   @id @default(uuid())
+  to         String
+  subject    String
+  template   String?
+  status     String   // SENT, FAILED, BOUNCED
+  error      String?
+  sentAt     DateTime @default(now())
+
+  @@index([to])
+  @@index([status])
+  @@map("email_logs")
+}
+
+// ==================== Cron Jobs / Scheduled Tasks ====================
+model CronJob {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  cronExpr    String   // cron expression
+  taskType    String   // LETTER_DELIVERY, EMAIL_NOTIFICATION, etc.
+  config      String?  // JSON config
+  isActive    Boolean  @default(true)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("cron_jobs")
+}
+
+// ==================== Notification ====================
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // PARTNER_REQUEST, LETTER_RECEIVED, etc.
+  title     String
+  content   String?
+  isRead    Boolean  @default(false)
+  data      String?  // JSON payload
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ==================== System Config ====================
+model SystemConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   // JSON value
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+// ==================== V3 Pet System ====================
+
+model Pet {
+  id         String   @id @default(uuid())
+  name       String
+  avatar     String?
+  level      Int      @default(1)
+  hunger     Int      @default(100)
+  happiness  Int      @default(100)
+  exp        Int      @default(0)
+  energy     Int      @default(100)
+  clean      Int      @default(100)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  members    PetMember[]
+  voices     VoiceRecord[]
+  activities PetActivity[]
+  invites    PetInvite[]    @relation("PetInvites")
+
+  @@map("pets")
+}
+
+model PetMember {
+  id       String   @id @default(uuid())
+  petId    String
+  userId   String
+  role     String   @default("MEMBER") // OWNER, MEMBER
+  joinedAt DateTime @default(now())
+
+  pet      Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([petId, userId])
+  @@map("pet_members")
+}
+
+model PetInvite {
+  id        String   @id @default(uuid())
+  petId     String
+  inviterId String
+  inviteeId String
+  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt DateTime @default(now())
+
+  pet       Pet      @relation("PetInvites", fields: [petId], references: [id], onDelete: Cascade)
+  inviter   User     @relation("InvitesSent", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee   User     @relation("InvitesReceived", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@map("pet_invites")
+}
+
+model VoiceRecord {
+  id         String   @id @default(uuid())
+  petId      String
+  userId     String
+  audioUrl   String
+  duration   Int      @default(0) // seconds
+  transcript String?
+  createdAt  DateTime @default(now())
+
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+  @@map("voice_records")
+}
+
+model PetActivity {
+  id        String   @id @default(uuid())
+  petId     String
+  userId    String
+  type      String   // FEED, PLAY, CLEAN, VOICE, LOGIN, LEVEL_UP
+  metadata  String?  // JSON
+  createdAt DateTime @default(now())
+
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+  @@index([createdAt])
+  @@map("pet_activities")
+}

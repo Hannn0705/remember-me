@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Georgia:wght@400;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 15 15 25;
+    --card: 255 255 255;
+    --card-foreground: 15 15 25;
+    --primary: 102 126 234;
+    --primary-foreground: 255 255 255;
+    --secondary: 245 87 108;
+    --secondary-foreground: 255 255 255;
+    --muted: 243 244 246;
+    --muted-foreground: 107 114 128;
+    --accent: 245 87 108;
+    --accent-foreground: 255 255 255;
+    --border: 229 231 235;
+    --input: 229 231 235;
+    --ring: 102 126 234;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 15 15 25;
+    --foreground: 243 244 246;
+    --card: 31 31 45;
+    --card-foreground: 243 244 246;
+    --primary: 102 126 234;
+    --primary-foreground: 255 255 255;
+    --secondary: 245 87 108;
+    --secondary-foreground: 255 255 255;
+    --muted: 55 55 70;
+    --muted-foreground: 156 163 175;
+    --border: 55 55 70;
+    --input: 55 55 70;
+    --ring: 102 126 234;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  body {
+    @apply bg-white text-gray-900 antialiased;
+    font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  }
+}
+
+/* Star Grid */
+.star-cell {
+  @apply w-8 h-8 rounded-full transition-all duration-300 cursor-pointer;
+}
+
+.star-cell:hover {
+  @apply transform scale-125 shadow-lg;
+}
+
+.star-cell.has-memory {
+  @apply shadow-md;
+}
+
+.star-cell.today {
+  box-shadow: 0 0 0 2px #667eea, 0 0 0 4px white;
+}
+
+/* Glass morphism */
+.glass {
+  @apply bg-white/80 backdrop-blur-lg border border-white/20 shadow-xl;
+}
+
+.dark .glass {
+  @apply bg-gray-900/80 border-gray-700/20;
+}
+
+/* Gradient text */
+.gradient-text {
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(to right, #667eea, #f5576c);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
+
+/* Letter paper effect */
+.letter-paper {
+  @apply bg-white rounded-lg shadow-md p-8;
+  background-image:
+    linear-gradient(#f0f0f0 1px, transparent 1px),
+    linear-gradient(90deg, transparent 39px, #ffd7d7 39px, #ffd7d7 40px, transparent 40px);
+  background-size: 100% 32px, 100% 100%;
+  line-height: 32px;
+  padding-left: 56px;
+}
+
+/* Loading shimmer */
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}

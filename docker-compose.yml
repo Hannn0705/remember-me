@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: remember-me-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: remember_me
+      POSTGRES_PASSWORD: remember_me_pass
+      POSTGRES_DB: remember_me
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U remember_me"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (for BullMQ)
+  redis:
+    image: redis:7-alpine
+    container_name: remember-me-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: remember-me-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://remember_me:remember_me_pass@postgres:5432/remember_me?schema=public
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3001:3001"
+    volumes:
+      - uploads_data:/app/uploads
+    command: >
+      sh -c "npx prisma migrate deploy && npx prisma db seed && node dist/main.js"
+
+  # Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: remember-me-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    env_file:
+      - .env.production
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    ports:
+      - "3000:3000"
+
+  # Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: remember-me-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
